@@ -1,5 +1,6 @@
 const User = require('../../models/mongo/user.model.js'); // Importa el modelo de usuario
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 class AuthCtrl {
 
@@ -9,7 +10,7 @@ class AuthCtrl {
             const { name, email, password } = req.body;
 
             if (!password || typeof password !== 'string') {
-                return res.status(400).json({ mensaje: 'La contraseña es requerida y debe ser una cadena' });
+                return res.status(400).json({ mensaje: 'La contraseña es requerida' });
             }
             const existingUser = await User.findOne({ email });
 
@@ -28,6 +29,7 @@ class AuthCtrl {
 
 
             res.status(201).json({ mensaje: 'Usuario registrado exitosamente' });
+
         } catch (error) {
             res.status(500).json({ mensaje: 'Error al registrar usuario', detalle: `${error}` });
         }
@@ -37,27 +39,42 @@ class AuthCtrl {
         try {
             const { email, password } = req.body;
 
-            // Verifica si se ingresaron el email y la contraseña
             if (!email || !password) {
                 return res.status(400).json({ mensaje: 'Email y contraseña son requeridos' });
             }
-
+    
             const user = await User.findOne({ email });
             if (!user) {
                 return res.status(401).json({ mensaje: "No se encontró el usuario" });
             }
-
+    
             const isMatch = await user.comparePassword(password);
-
+    
             if (!isMatch) {
                 return res.status(401).json({ mensaje: "Credenciales inválidas" });
             } else {
-                return res.status(200).json({ mensaje: "Autenticación éxitosa!", user: { name: user.name, email: user.email } });
+
+                const token = jwt.sign(
+                    { 
+                        id: user._id, 
+                        email: user.email,
+                        id: user._id
+                     },                    
+                    process.env.JWT_SECRET_KEY,                    
+                    { expiresIn: '2d' } 
+                    
+                );
+                
+                return res.status(200).json({ 
+                    mensaje: "Autenticación exitosa!", 
+                    user: { name: user.name, email: user.email, _id: user._id }, 
+                    token 
+                });
             }
         } catch (error) {
             return res.status(500).json({ mensaje: 'Error de autenticación', detalle: `${error}` });
         }
-    };
+    }
 
 }
 
