@@ -5,41 +5,60 @@ class AuthCtrl {
 
     registro = async (req, res) => {
         try {
-            // Extraer datos del cuerpo de la solicitud
+
             const { name, email, password } = req.body;
 
-            console.log('El body ', req.body)
-
-            // Validar si ya existe un usuario con el mismo email
+            if (!password || typeof password !== 'string') {
+                return res.status(400).json({ mensaje: 'La contraseña es requerida y debe ser una cadena' });
+            }
             const existingUser = await User.findOne({ email });
+
             if (existingUser) {
                 return res.status(400).json({ mensaje: 'El correo ya está registrado' });
             }
 
-            // Encriptar la contraseña
-            const hashedPassword = await bcrypt.hash(password, 10);
-
-            // Crear el nuevo usuario
+            // Nuevo usuario
             const newUser = new User({
                 name,
                 email,
-                password: hashedPassword
+                password
             });
 
-            // Guardar el usuario en la base de datos
             await newUser.save();
 
-            // Enviar respuesta de éxito
+
             res.status(201).json({ mensaje: 'Usuario registrado exitosamente' });
         } catch (error) {
-            // Manejo de errores
-            res.status(500).json({ mensaje: 'Error al registrar usuario', error: `${error}` });
+            res.status(500).json({ mensaje: 'Error al registrar usuario', detalle: `${error}` });
         }
     }
 
-    login = (req, res) => {
-        res.send('login user');
-    }
+    login = async (req, res) => {
+        try {
+            const { email, password } = req.body;
+
+            // Verifica si se ingresaron el email y la contraseña
+            if (!email || !password) {
+                return res.status(400).json({ mensaje: 'Email y contraseña son requeridos' });
+            }
+
+            const user = await User.findOne({ email });
+            if (!user) {
+                return res.status(401).json({ mensaje: "No se encontró el usuario" });
+            }
+
+            const isMatch = await user.comparePassword(password);
+
+            if (!isMatch) {
+                return res.status(401).json({ mensaje: "Credenciales inválidas" });
+            } else {
+                return res.status(200).json({ mensaje: "Autenticación éxitosa!", user: { name: user.name, email: user.email } });
+            }
+        } catch (error) {
+            return res.status(500).json({ mensaje: 'Error de autenticación', detalle: `${error}` });
+        }
+    };
+
 }
 
 module.exports = AuthCtrl;
